@@ -2,7 +2,7 @@ import Image from 'next/image'
 import { Inter } from 'next/font/google'
 import 'chart.js/auto';
 import { Bar } from 'react-chartjs-2'
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 const inter = Inter({ subsets: ['latin'] })
 
 
@@ -10,6 +10,7 @@ export default function Home() {
 
 
   const gasPerBlob = BigInt(2 ** 17);
+  const targetBlobGas = gasPerBlob * BigInt(3);
   const blobGasPriceUpdateFraction = BigInt(3338477);
 
   const calcBlobGasPrice = (excessBlobGas: bigint) => {
@@ -31,32 +32,71 @@ export default function Home() {
 
     return fakeExponential(BigInt(1), excessBlobGas, blobGasPriceUpdateFraction);
   };
-  const n = 30;
+  const blockCount = 31;
 
-
-  let [graphData, setGraphData] = useState({
-    labels: Array.from(Array(n).keys()),
+  const pricesGraphDataTemplate = {
+    labels: [],
+    tooltipText: [],
     datasets: [
       {
         label: "Blob price",
         backgroundColor: "rgba(255,99,132,0.2)",
         borderColor: "rgba(255,99,132,1)",
         borderWidth: 2,
-
         hoverBackgroundColor: "rgba(255,99,132,0.4)",
         hoverBorderColor: "rgba(255,99,132,1)",
-        data: Array.from(Array(n).keys()).map((i) =>
-          Number(calcBlobGasPrice(BigInt(i * 3) * gasPerBlob))
-        )
+        data: []
       }
     ]
-  });
+  }
 
-  const setData = (data: number[]) => {
+  let [graphData, setGraphData] = useState(pricesGraphDataTemplate);
+
+  const blobsGraphDataTemplate = {
+    labels: [],
+    datasets: [
+      {
+        scales: {
+          y: {
+            suggestedMin: 6,
+            suggestedMax: 6
+          }
+        },
+        label: "Blob count",
+        backgroundColor: "rgba(255,99,132,0.2)",
+        borderColor: "rgba(255,99,132,1)",
+        borderWidth: 2,
+        hoverBackgroundColor: "rgba(255,99,132,0.4)",
+        hoverBorderColor: "rgba(255,99,132,1)",
+        data: []
+      }
+    ]
+  }
+
+  let [graphBlobsData, setGraphBlobsData] = useState(blobsGraphDataTemplate);
+
+  const setData = (title: string, blobs: number[], maxBlobGasPrice?: bigint) => {
+    let data = blobs.reduce((acc: any, val) => {
+      const price = calcBlobGasPrice(BigInt(acc.excessBlobGas));
+      const blobCount = BigInt(maxBlobGasPrice && maxBlobGasPrice < price ? 0 : val);
+      const excessBlobGas = acc.excessBlobGas + gasPerBlob * blobCount - targetBlobGas;
+      return { prices: [...acc.prices, price], blobs: [...acc.blobs, blobCount], excessBlobGas: excessBlobGas > 0 ? excessBlobGas : BigInt(0) }
+    },
+      { prices: [], blobs: [], excessBlobGas: BigInt(0) }
+    );
+    let priceLabels = blobs.map((b, i) => `${data.prices[i]}`);
+    let priceTips = blobs.map((b, i) => `${b.toString()} blobs\n ${data.prices[i]}/B\n ${data.prices[i] * gasPerBlob}/blob`);
+    let blobLabels = blobs.map(b => b.toString());
     setGraphData({
-      ...graphData,
-      labels: Array.from(Array(data.length).keys()),
-      datasets: [{ ...graphData.datasets[0], data: data }]
+      ...pricesGraphDataTemplate,
+      labels: priceLabels as any,
+      tooltipText: priceTips as any,
+      datasets: [{ ...graphData.datasets[0], label: title, data: data.prices.map(Number) }]
+    });
+    setGraphBlobsData({
+      ...blobsGraphDataTemplate,
+      labels: blobLabels as any,
+      datasets: [{ ...graphBlobsData.datasets[0], data: data.blobs.map(Number) }]
     });
   }
 
@@ -78,6 +118,9 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    setData("Max blobs", Array.from(Array(blockCount).keys()).map(x=>6));
+  }, []);
 
   return (
     <main
@@ -85,24 +128,22 @@ export default function Home() {
     >
       <div>
         <h1>EIP-4844: Shard Blob Transactions, visually explained</h1>
+        <br />
+        <h2>Blob gas price per unit depending on blob count per block</h2>
+
         <div className="chart-container">
           <Bar data={graphData} options={options} />
         </div>
+        <div className="blobs-chart-container">
+          <Bar data={graphBlobsData} options={options} />
+        </div>
+        <br />
 
-        Strategies:
-
-        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setData(Array.from(Array(n).keys()).map((i) =>
-          Number(calcBlobGasPrice(BigInt(0) * gasPerBlob))
-        ))}>Target blobs</button>
-        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setData(Array.from(Array(n).keys()).map((i) =>
-          Number(calcBlobGasPrice(BigInt(i * 3) * gasPerBlob))
-        ))}>Max blobs</button>
-        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setData(Array.from(Array(n).keys()).map((i) =>
-          Number(calcBlobGasPrice(BigInt(Math.min(i * 3, 42)) * gasPerBlob))
-        ))}>Limit maxBlobGasPrice</button>
-        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={() => setData(Array.from(Array(n).keys()).map((i) =>
-          Number(calcBlobGasPrice(BigInt(i * 3) * gasPerBlob))
-        ))}>Emulate several senders</button>
+        Strategies:<br/><br/>
+        <div className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Target blobs", Array.from(Array(blockCount).keys()).map(x => 3))}>Target blobs</div><br/>
+        <div className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Max blobs", Array.from(Array(blockCount).keys()).map(x => 6))}>Max blobs</div><br/>
+        <div className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Limit maxBlobGasPrice, 20/B", Array.from(Array(blockCount).keys()).map(x => 6), BigInt(20))}>Limit maxBlobGasPrice</div>
+        {/* <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded pb-4" onClick={() => setData(Array.from(Array(blockCount).keys()).map(x=>6))}>Emulate several senders</button> */}
       </div>
     </main>
   )
