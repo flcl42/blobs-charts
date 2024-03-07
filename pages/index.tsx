@@ -122,6 +122,13 @@ export default function Home() {
     setData("Max blobs", Array.from(Array(blockCount).keys()).map(x=>6));
   }, []);
 
+  let [blobGasPrice, setBlobGasPrice] = useState(BigInt(BigInt(calcBlobGasPrice(BigInt(0)))));
+
+  const mapStringToBigInt = (str: string) => {
+    str = str.trim().toLowerCase();
+    return BigInt(Number.parseInt(str, str.startsWith("0x") ? 16: 10) || 0);
+  }
+
   return (
     <main
       className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
@@ -140,10 +147,19 @@ export default function Home() {
         <br />
 
         Strategies:<br/><br/>
-        <div className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Target blobs", Array.from(Array(blockCount).keys()).map(x => 3))}>Target blobs</div><br/>
-        <div className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Max blobs", Array.from(Array(blockCount).keys()).map(x => 6))}>Max blobs</div><br/>
-        <div className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Limit maxBlobGasPrice, 20/B", Array.from(Array(blockCount).keys()).map(x => 6), BigInt(20))}>Limit maxBlobGasPrice</div>
+        <div className="bg-gray-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Target blobs", Array.from(Array(blockCount).keys()).map(x => 3))}>Target blobs</div><br/>
+        <div className="bg-gray-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Max blobs", Array.from(Array(blockCount).keys()).map(x => 6))}>Max blobs</div><br/>
+        <div className="bg-gray-500 hover:bg-blue-700 text-white font-bold py-2 px-12 rounded w-80" onClick={() => setData("Limit maxBlobGasPrice, 20/B", Array.from(Array(blockCount).keys()).map(x => 6), BigInt(20))}>Limit maxBlobGasPrice</div>
         {/* <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded pb-4" onClick={() => setData(Array.from(Array(blockCount).keys()).map(x=>6))}>Emulate several senders</button> */}
+      </div>
+
+      <div>
+        <h2>Gas price calculator</h2>
+        <br />
+        <input type="text" className="bg-blue-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+          onChange={(value)=>setBlobGasPrice(calcBlobGasPrice(mapStringToBigInt(value.target.value)))} /> 
+        <div>Blob gas price: <span>{blobGasPrice.toString()}</span> ( <span>0x{blobGasPrice.toString(16)}</span> )</div>
+
       </div>
     </main>
   )
